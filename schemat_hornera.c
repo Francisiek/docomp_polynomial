@@ -70,8 +70,14 @@ Polynomial get_next_polynomial(char polynomial[]) {
             was_x = true;
             x.power = 1;
             i++;
+            bool was_space = false;
 
-            if (polynomial[i] == '^') {
+            while (isspace(polynomial[i])) {
+                was_space = true;
+                i++;
+            }
+
+            if (polynomial[i] == '^' && !was_space) {
                 i++;
                 if (isdigit(polynomial[i])) { 
                     x.power = atoi(&polynomial[i]);
@@ -106,6 +112,7 @@ Polynomial get_next_polynomial(char polynomial[]) {
 
 int divisors(int number) {
 // zwraca po jednym następnym naturalnym dzielniku 'number'
+    number = abs(number);
     static int last_number = 0;
     static int last_div = 1;
     
@@ -124,7 +131,7 @@ int divisors(int number) {
 }
 
 
-int max_power, min_power;
+int max_power = 0, min_power = INT_MAX;
 int coefficients[256];
 
 int coefficients[256];
@@ -133,8 +140,6 @@ int rest;
 
 int fill_coefficients(char w[]) {
 // wypełnia tablicę współczynników
-    max_power = 0;
-    min_power = INT_MAX;
 
     Polynomial element;
 
@@ -170,24 +175,24 @@ int calculate_scheme_with_x(int x) {
 }
 
 
-int calculate_scheme(int divisor) {
+int* calculate_scheme(int divisor) {
     int* new_coefficients = calloc(sizeof(int), 256);
     new_coefficients[max_power - 1] = coefficients[max_power]; 
+    
     for (int i = max_power - 2; i >= 0; i--) {
-        new_coefficients[i] = new_coefficients[i + 1] * -divisor + coefficients[i + 1];
+        new_coefficients[i] = new_coefficients[i + 1] * divisor + coefficients[i + 1];
         if (new_coefficients[i] != 0 && i > max_power)
             max_power = i;
         else if (new_coefficients[i] != 0 && i < min_power)
             min_power = i;
     } 
 
-    int r = new_coefficients[0] * -divisor + coefficients[0];
-    rest += r;
-
+    rest = new_coefficients[0] * divisor + coefficients[0];
+/*
     for (int i = 0; i <= max_power; i++)
         coefficients[i] = new_coefficients[i];
-    
-    return r;
+*/    
+    return new_coefficients;
 }
 
 
@@ -232,15 +237,27 @@ int main(int argc, char** argv) {
             printf("power %d, coefficient %d\n", i, coefficients[i]);
     }
 
-    while (min_power > 0) {
+    printf("%d %d\n", max_power, min_power);
+
+    while (max_power > 0) {
         int div, best_div = 0;
         while (div = divisors(coefficients[0])) {
             if (calculate_scheme_with_x(div) == 0) {
                 best_div = div;
                 break;
             }
-        }
 
+            if (calculate_scheme_with_x(-div) == 0) {
+                best_div = -div;
+                break;
+            }
+        }
+        int* nt = calculate_scheme(best_div);
+        printf("divisor = %d\n", best_div);
+        for (int i = 0; i < 256; i++) {
+            if (nt[i])
+                printf("power %d, coefficient %d\n", i, nt[i]);
+        }
     }
 
     exit(EXIT_SUCCESS);
