@@ -178,20 +178,20 @@ int calculate_scheme_with_x(int x) {
 int* calculate_scheme(int divisor) {
     int* new_coefficients = calloc(sizeof(int), 256);
     new_coefficients[max_power - 1] = coefficients[max_power]; 
-    
+
+
     for (int i = max_power - 2; i >= 0; i--) {
         new_coefficients[i] = new_coefficients[i + 1] * divisor + coefficients[i + 1];
-        if (new_coefficients[i] != 0 && i > max_power)
-            max_power = i;
-        else if (new_coefficients[i] != 0 && i < min_power)
-            min_power = i;
     } 
 
     rest = new_coefficients[0] * divisor + coefficients[0];
-/*
+
     for (int i = 0; i <= max_power; i++)
         coefficients[i] = new_coefficients[i];
-*/    
+    
+    max_power--;
+    min_power--;
+    
     return new_coefficients;
 }
 
@@ -230,14 +230,14 @@ int main(int argc, char** argv) {
     
     fill_coefficients(inputString);
 
-    printf("coefficient table\n");
-    printf("first x product power %d\n", first_product_power);
+    printf("coefficient table -------\n");
+    printf("first x product power = %d\n", first_product_power);
     for (int i = 0; i < 256; i++) {
         if (coefficients[i])
             printf("power %d, coefficient %d\n", i, coefficients[i]);
     }
 
-    printf("%d %d\n", max_power, min_power);
+    printf("maxp = %d, minp = %d\n", max_power, min_power);
 
     while (max_power > 0) {
         int div, best_div = 0;
@@ -252,12 +252,18 @@ int main(int argc, char** argv) {
                 break;
             }
         }
-        int* nt = calculate_scheme(best_div);
-        printf("divisor = %d\n", best_div);
-        for (int i = 0; i < 256; i++) {
-            if (nt[i])
-                printf("power %d, coefficient %d\n", i, nt[i]);
-        }
+
+        if (best_div != 0) {
+            calculate_scheme(best_div);
+            printf("------\n");
+            printf("divisor = %d\n", best_div);
+            printf("rest = %d\n", rest);
+            for (int i = 0; i < 256; i++) {
+                if (coefficients[i])
+                    printf("power %d, coefficient %d\n", i, coefficients[i]);
+            }
+        } else
+            break;
     }
 
     exit(EXIT_SUCCESS);
