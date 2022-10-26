@@ -20,6 +20,13 @@ typedef struct Polynomial {
 
 Polynomial default_polynomial = {};
 
+typedef struct Fraction {
+    int up;
+    unsigned int down;
+} Fraction;
+
+Fraction default_fraction = {};
+
 bool is_default_polynomial(Polynomial x) {
     return (x.coefficient == default_polynomial.coefficient) &&
         (x.power == default_polynomial.power);
@@ -109,7 +116,9 @@ Polynomial get_next_polynomial(char polynomial[]) {
     return default_polynomial;
 }
 
-
+// TODO: obecnie funkcja zwraca po kolei po dzielniku JEDNEJ liczby
+// dodać możliwość zwracania dzielników dla wielu liczb z zachowaniem
+// kolejności ich zwracania -> dodać mapę [liczba, ostatni zwrócony dzielnik]
 int divisors(int number) {
 // zwraca po jednym następnym naturalnym dzielniku 'number'
     number = abs(number);
@@ -137,6 +146,28 @@ int coefficients[256];
 int coefficients[256];
 int first_product_power;
 int rest;
+
+Fraction get_next_divisor(void) {
+    // zwraca wymierny dzielnik p/q taki, że p dzieli wyraz wolny,
+    // a q wyraz największej potęgi
+
+    static int free_word = 0;
+    static int maxp_word = 0;
+
+    if (free_word != coefficients[0]) {
+        free_word = coefficients[0];
+        maxp_word = coefficients[max_power];
+    }
+
+    Fraction f = default_fraction;
+    while (f.down = divisors(coefficients[maxp_word])) { // q
+        while (f.up = divisors(coefficients[free_word])) { // p
+            return f;
+        }
+    }
+
+    return default_fraction;
+}
 
 int fill_coefficients(char w[]) {
 // wypełnia tablicę współczynników
