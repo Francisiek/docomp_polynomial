@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <limits.h>
 #include <math.h>
+#include <map.h>
 
 int printe(char format[], ...) {
     va_list arg;
