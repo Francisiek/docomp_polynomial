@@ -6,7 +6,6 @@
 #include <ctype.h>
 #include <limits.h>
 #include <math.h>
-#include <map.h>
 
 int printe(char format[], ...) {
     va_list arg;
@@ -21,6 +20,11 @@ typedef struct Polynomial {
 
 Polynomial default_polynomial = {};
 
+bool is_default_polynomial(Polynomial x) {
+    return (x.coefficient == default_polynomial.coefficient) &&
+        (x.power == default_polynomial.power);
+}
+
 typedef struct Fraction {
     int up;
     unsigned int down;
@@ -28,9 +32,14 @@ typedef struct Fraction {
 
 Fraction default_fraction = {};
 
-bool is_default_polynomial(Polynomial x) {
-    return (x.coefficient == default_polynomial.coefficient) &&
-        (x.power == default_polynomial.power);
+bool is_default_fraction(Fraction x) {
+    return (x.up == default_fraction.up) && 
+        (x.down == default_fraction.down);
+}
+
+Fraction get_fraction(int up, int down) {
+    Fraction x = {up, down};
+    return x;
 }
 
 Polynomial get_next_polynomial(char polynomial[]) {
@@ -117,27 +126,64 @@ Polynomial get_next_polynomial(char polynomial[]) {
     return default_polynomial;
 }
 
+// table for storing last divisor each of 2 numbers
+int last_divisors[2][2];
+
+void clear_last_div(void) {
+    last_divisors[0][0] = 0;
+    last_divisors[1][0] = 0;
+    last_divisors[0][1] = 1;
+    last_divisors[1][1] = 1;
+}
+
+// sets only numbers, not their divisors, better use before 'clear_last_div'
+void set_last_div(int x, int y) {
+    last_divisors[0][0] = x;
+    last_divisors[1][0] = y;
+}
+
 // TODO: obecnie funkcja zwraca po kolei po dzielniku JEDNEJ liczby
 // dodać możliwość zwracania dzielników dla wielu liczb z zachowaniem
 // kolejności ich zwracania -> dodać mapę [liczba, ostatni zwrócony dzielnik]
 int divisors(int number) {
 // zwraca po jednym następnym naturalnym dzielniku 'number'
+// jednocześnie pamięta po ostatnim dzielniku dwóch liczb 'last_divisors'
     number = abs(number);
     static int last_number = 0;
     static int last_div = 1;
-    
+    static int last_num_i = -1;
+
     if (number != last_number) {
-        last_div = 1;
+        if (number == last_divisors[0][0])
+            last_num_i = 0;
+        else if (number == last_divisors[1][0])
+            last_num_i = 1;
+        else
+            last_div = 1;
     }
 
     last_number = number;
 
+    if (last_num_i == 0)
+        last_div = last_divisors[0][1];
+    else if (last_num_i == 1)
+        last_div = last_divisors[1][1];
+
+    if (last_div == 0)
+        last_div = 1;
+
     while (last_div <= number) {
-        if (number % (last_div++) == 0) 
+        if (number % (last_div++) == 0) {
+            if (last_num_i == 0)
+                last_divisors[0][1] = last_div;
+            else if (last_num_i == 1)
+                last_divisors[1][1] = last_div;
+            
             return last_div - 1;
+        }
     }
 
-    return 0;
+    return last_div = 0;
 }
 
 
@@ -149,23 +195,33 @@ int first_product_power;
 int rest;
 
 Fraction get_next_divisor(void) {
-    // zwraca wymierny dzielnik p/q taki, że p dzieli wyraz wolny,
-    // a q wyraz największej potęgi
+// zwraca wymierny dzielnik p/q taki, że p dzieli wyraz wolny,
+// a q wyraz największej potęgi
+// przed wywołaniem, wywołaj clear_last_div
 
     static int free_word = 0;
     static int maxp_word = 0;
-
+    static bool was_q_set = false;
     if (free_word != coefficients[0]) {
         free_word = coefficients[0];
         maxp_word = coefficients[max_power];
+        was_q_set = false;
     }
 
+    set_last_div(maxp_word, free_word);
     Fraction f = default_fraction;
-    while (f.down = divisors(coefficients[maxp_word])) { // q
-        while (f.up = divisors(coefficients[free_word])) { // p
+
+    if (was_q_set == false) {
+        f.down = divisors(maxp_word);
+        was_q_set = true;
+    }
+
+    while (f.down) { // q
+        while (f.up = divisors(free_word)) { // p
             return f;
         }
-    }
+        f.down = divisors(maxp_word);
+    } 
 
     return default_fraction;
 }
@@ -196,27 +252,29 @@ int fill_coefficients(char w[]) {
     return 0;
 }
 
-int calculate_scheme_with_x(int x) {
+int calculate_scheme_with_x(Fraction x) {
     int result = 0;
     for (int i = 0; i < 256; i++) {
         if (coefficients[i])
-            result += pow(x, i) * coefficients[i]; 
+            result += pow(x.up, i) / pow(x.down, i) * coefficients[i]; 
     }
 
     return result;
 }
 
 
-int* calculate_scheme(int divisor) {
+int* calculate_scheme(Fraction divisor) {
     int* new_coefficients = calloc(sizeof(int), 256);
     new_coefficients[max_power - 1] = coefficients[max_power]; 
 
 
     for (int i = max_power - 2; i >= 0; i--) {
-        new_coefficients[i] = new_coefficients[i + 1] * divisor + coefficients[i + 1];
+        new_coefficients[i] = 
+            (new_coefficients[i + 1] * divisor.up) / divisor.down + coefficients[i + 1];
     } 
 
-    rest = new_coefficients[0] * divisor + coefficients[0];
+    rest = 
+        (new_coefficients[0] * divisor.up) / divisor.down + coefficients[0];
 
     for (int i = 0; i <= max_power; i++)
         coefficients[i] = new_coefficients[i];
@@ -227,31 +285,12 @@ int* calculate_scheme(int divisor) {
     return new_coefficients;
 }
 
-
-/*
-int horner_scheme(FILE* output, char polynomial[]) {
-    fill_coefficients(polynomial);
-    
-    int div, best_div = INT_MAX;
-    while (div = divisors(coefficients[0])) {
-         if (calc_coefficients(div) == 0) {
-            best_div = div;
-            break;
-        }
-        else if (calc_coefficients(div) < calc_coefficients(best_div))
-            best_div = div;
-    }
-
-    rest += calc_scheme(best_div);
-    coefficient[pindex++] = best_div;
-}
-*/
-
 int main(int argc, char** argv) {
     const size_t max_input_size = 256;
     char inputString[MAX_INPUT];
     char* b = inputString;
     Polynomial p;
+    
 
     int line_size = getline(&b, &max_input_size, stdin);
     inputString[line_size - 1] = '\0';
@@ -273,20 +312,40 @@ int main(int argc, char** argv) {
 
     while (max_power > 0) {
         int div, best_div = 0;
-        while (div = divisors(coefficients[0])) {
-            if (calculate_scheme_with_x(div) == 0) {
+        Fraction fdiv, best_fdiv = default_fraction;
+        clear_last_div();
+        while (!is_default_fraction(fdiv = get_next_divisor())) {
+            
+            if (calculate_scheme_with_x(fdiv) == 0) {
                 best_div = div;
                 break;
             }
 
-            if (calculate_scheme_with_x(-div) == 0) {
+            fdiv.up *= -1;
+            if (calculate_scheme_with_x(fdiv) == 0) {
                 best_div = -div;
                 break;
             }
         }
 
-        if (best_div != 0) {
-            calculate_scheme(best_div);
+        clear_last_div();
+        while (div = divisors(coefficients[0])) {
+            if (calculate_scheme_with_x(get_fraction(div, 1)) == 0) {
+                best_div = div;
+                break;
+            }
+
+            if (calculate_scheme_with_x(get_fraction(-div, 1)) == 0) {
+                best_div = -div;
+                break;
+            }
+        }
+        
+        if (best_div != 0)
+            best_fdiv = get_fraction(best_div, 1);
+        
+        if (!is_default_fraction(best_fdiv)) {
+            calculate_scheme(best_fdiv);
             printf("------\n");
             printf("divisor = %d\n", best_div);
             printf("rest = %d\n", rest);
