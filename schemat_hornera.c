@@ -127,19 +127,16 @@ Polynomial get_next_polynomial(char polynomial[]) {
 }
 
 // table for storing last divisor each of 2 numbers
-int last_divisors[2][2];
+int last_divisors[2];
 
 void clear_last_div(void) {
-    last_divisors[0][0] = 0;
-    last_divisors[1][0] = 0;
-    last_divisors[0][1] = 1;
-    last_divisors[1][1] = 1;
+    last_divisors[0] = 0;
+    last_divisors[1] = 1;
 }
 
 // sets only numbers, not their divisors, better use before 'clear_last_div'
-void set_last_div(int x, int y) {
-    last_divisors[0][0] = x;
-    last_divisors[1][0] = y;
+void set_last_div(int x) {
+    last_divisors[0] = abs(x);
 }
 
 // TODO: obecnie funkcja zwraca po kolei po dzielniku JEDNEJ liczby
@@ -151,38 +148,30 @@ int divisors(int number) {
     number = abs(number);
     static int last_number = 0;
     static int last_div = 1;
-    static int last_num_i = -1;
+    static bool use_saved_div = false;
 
-    if (number != last_number) {
-        if (number == last_divisors[0][0])
-            last_num_i = 0;
-        else if (number == last_divisors[1][0])
-            last_num_i = 1;
-        else
+    if (number != last_number || last_div == 0) {
+        if (number == last_divisors[0]) {
+            last_div = last_divisors[1];
+            use_saved_div = true;
+        } else {
             last_div = 1;
+            use_saved_div = false;
+        }
     }
 
     last_number = number;
 
-    if (last_num_i == 0)
-        last_div = last_divisors[0][1];
-    else if (last_num_i == 1)
-        last_div = last_divisors[1][1];
-
-    if (last_div == 0)
-        last_div = 1;
-
     while (last_div <= number) {
         if (number % (last_div++) == 0) {
-            if (last_num_i == 0)
-                last_divisors[0][1] = last_div;
-            else if (last_num_i == 1)
-                last_divisors[1][1] = last_div;
-            
+            if (use_saved_div)
+                last_divisors[1] = last_div;
             return last_div - 1;
         }
     }
 
+    if (use_saved_div)
+        last_divisors[1] = 1;
     return last_div = 0;
 }
 
@@ -202,14 +191,15 @@ Fraction get_next_divisor(void) {
     static int free_word = 0;
     static int maxp_word = 0;
     static bool was_q_set = false;
+    static Fraction f = {};
+
     if (free_word != coefficients[0]) {
         free_word = coefficients[0];
         maxp_word = coefficients[max_power];
         was_q_set = false;
     }
 
-    set_last_div(maxp_word, free_word);
-    Fraction f = default_fraction;
+    set_last_div(maxp_word);
 
     if (was_q_set == false) {
         f.down = divisors(maxp_word);
@@ -256,7 +246,7 @@ int calculate_scheme_with_x(Fraction x) {
     int result = 0;
     for (int i = 0; i < 256; i++) {
         if (coefficients[i])
-            result += pow(x.up, i) / pow(x.down, i) * coefficients[i]; 
+            result += (pow(x.up, i) / pow(x.down, i)) * coefficients[i]; 
     }
 
     return result;
@@ -313,21 +303,24 @@ int main(int argc, char** argv) {
     while (max_power > 0) {
         int div, best_div = 0;
         Fraction fdiv, best_fdiv = default_fraction;
+        
+        // search for fractional divisor
         clear_last_div();
         while (!is_default_fraction(fdiv = get_next_divisor())) {
             
             if (calculate_scheme_with_x(fdiv) == 0) {
-                best_div = div;
+                best_fdiv = fdiv;
                 break;
             }
 
             fdiv.up *= -1;
             if (calculate_scheme_with_x(fdiv) == 0) {
-                best_div = -div;
+                best_fdiv = fdiv;
                 break;
             }
         }
 
+        // now search for intigere divisor
         clear_last_div();
         while (div = divisors(coefficients[0])) {
             if (calculate_scheme_with_x(get_fraction(div, 1)) == 0) {
@@ -347,7 +340,7 @@ int main(int argc, char** argv) {
         if (!is_default_fraction(best_fdiv)) {
             calculate_scheme(best_fdiv);
             printf("------\n");
-            printf("divisor = %d\n", best_div);
+            printf("divisor = %d/%d\n", best_fdiv.up, best_fdiv.down);
             printf("rest = %d\n", rest);
             for (int i = 0; i < 256; i++) {
                 if (coefficients[i])
