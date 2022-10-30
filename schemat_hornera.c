@@ -7,6 +7,8 @@
 #include <limits.h>
 #include <math.h>
 
+// #define DEBUG_MODE
+
 int printe(char format[], ...) {
     va_list arg;
     vfprintf(stderr, format, arg);
@@ -126,7 +128,7 @@ Polynomial get_next_polynomial(char polynomial[]) {
     return default_polynomial;
 }
 
-// table for storing last divisor each of 2 numbers
+// table for storing last divisor for a number
 int last_divisors[2];
 
 void clear_last_div(void) {
@@ -134,14 +136,9 @@ void clear_last_div(void) {
     last_divisors[1] = 1;
 }
 
-// sets only numbers, not their divisors, better use before 'clear_last_div'
-void set_last_div(int x) {
-    last_divisors[0] = abs(x);
-}
+static int last_number = 0;
+static int last_div = 1;
 
-// TODO: obecnie funkcja zwraca po kolei po dzielniku JEDNEJ liczby
-// dodać możliwość zwracania dzielników dla wielu liczb z zachowaniem
-// kolejności ich zwracania -> dodać mapę [liczba, ostatni zwrócony dzielnik]
 int divisors(int number) {
 // zwraca po jednym następnym naturalnym dzielniku 'number'
 // jednocześnie pamięta po ostatnim dzielniku dwóch liczb 'last_divisors'
@@ -175,13 +172,18 @@ int divisors(int number) {
     return last_div = 0;
 }
 
+// sets only number, not it's divisor, better use before 'clear_last_div'
+void set_last_div(int x) {
+    last_divisors[0] = abs(x);
+    last_number = 0;
+    last_div = 1;
+}
+
 
 int max_power = 0, min_power = INT_MAX;
 int coefficients[256];
-
-int coefficients[256];
 int first_product_power;
-int rest;
+double rest;
 
 Fraction get_next_divisor(void) {
 // zwraca wymierny dzielnik p/q taki, że p dzieli wyraz wolny,
@@ -266,6 +268,7 @@ int* calculate_scheme(Fraction divisor) {
     rest = 
         (new_coefficients[0] * divisor.up) / divisor.down + coefficients[0];
 
+    // change old table to new one
     for (int i = 0; i <= max_power; i++)
         coefficients[i] = new_coefficients[i];
     
@@ -275,7 +278,7 @@ int* calculate_scheme(Fraction divisor) {
     return new_coefficients;
 }
 
-int main(int argc, char** argv) {
+int main(void) {
     const size_t max_input_size = 256;
     char inputString[MAX_INPUT];
     char* b = inputString;
@@ -285,21 +288,28 @@ int main(int argc, char** argv) {
     int line_size = getline(&b, &max_input_size, stdin);
     inputString[line_size - 1] = '\0';
     
+    #ifdef DEBUG_MODE
+    // print each word of the given polynomial
     while (!is_default_polynomial(p = get_next_polynomial(inputString))) {
         printf("w %dx^%d\n", p.coefficient, p.power);
     }
+    #endif
     
+    // parse it to the table
     fill_coefficients(inputString);
 
+    #ifdef DEBUG_MODE
+    // debug info: show what habe been just saved
     printf("coefficient table -------\n");
     printf("first x product power = %d\n", first_product_power);
     for (int i = 0; i < 256; i++) {
         if (coefficients[i])
             printf("power %d, coefficient %d\n", i, coefficients[i]);
     }
-
     printf("maxp = %d, minp = %d\n", max_power, min_power);
+    #endif
 
+    // find the divisors and calculate products
     while (max_power > 0) {
         int div, best_div = 0;
         Fraction fdiv, best_fdiv = default_fraction;
@@ -337,14 +347,17 @@ int main(int argc, char** argv) {
         if (best_div != 0)
             best_fdiv = get_fraction(best_div, 1);
         
-        if (!is_default_fraction(best_fdiv)) {
+        if (max_power == 1) {
+            printf("last zero place = %d/%d\n", best_fdiv.up, best_fdiv.down);
+            break;
+        } else if (!is_default_fraction(best_fdiv)) {
+            // print what has been found - divisor, rest, and product
             calculate_scheme(best_fdiv);
-            printf("------\n");
-            printf("divisor = %d/%d\n", best_fdiv.up, best_fdiv.down);
-            printf("rest = %d\n", rest);
+            printf("divisor = (x - %d/%d)\n", best_fdiv.up, best_fdiv.down);
+            printf("rest = %f\n", rest);
             for (int i = 0; i < 256; i++) {
                 if (coefficients[i])
-                    printf("power %d, coefficient %d\n", i, coefficients[i]);
+                    printf("\tpower %d, coefficient %d\n", i, coefficients[i]);
             }
         } else
             break;
